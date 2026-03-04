@@ -380,10 +380,15 @@ _schema:
       type: string
       required: false
       description: "Message ID of the last digest sent (for reply tracking)"
+    last_digest_text:
+      type: string
+      required: false
+      description: "Full text of the last digest sent"
 
 last_digest_sent_at: null
 last_digest_memory_ids: []
 last_digest_message_id: null
+last_digest_text: null
 """
 
 AUTHORIZED_CHATS_SCHEMA = """\

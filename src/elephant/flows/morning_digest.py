@@ -194,6 +194,7 @@ class MorningDigestFlow:
             "last_digest_sent_at": now,
             "last_digest_memory_ids": [m.id for m in top_memories],
             "last_digest_message_id": first_success.message_id,
+            "last_digest_text": digest_text,
         })
         self._store.write_digest_state(state)
 

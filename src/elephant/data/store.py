@@ -323,6 +323,7 @@ class DataStore:
                 "last_digest_sent_at": raw.get("last_digest_sent_at"),
                 "last_digest_memory_ids": raw.get("last_digest_memory_ids", []),
                 "last_digest_message_id": raw.get("last_digest_message_id"),
+                "last_digest_text": raw.get("last_digest_text"),
             }
         )
 

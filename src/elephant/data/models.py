@@ -233,6 +233,7 @@ class DigestState(BaseModel):
     last_digest_sent_at: datetime | None = None
     last_digest_memory_ids: list[str] = Field(default_factory=list)
     last_digest_message_id: str | None = None
+    last_digest_text: str | None = None
 
 
 # --- Authorized Chats ---

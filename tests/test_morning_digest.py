@@ -51,6 +51,7 @@ class TestMorningDigestFlow:
         state = store.read_digest_state()
         assert state.last_digest_message_id == "msg_digest_1"
         assert len(state.last_digest_memory_ids) > 0
+        assert state.last_digest_text == "On this day last year, Lily took her first steps!"
 
     async def test_handles_send_failure(self, store_with_memories):
         store = store_with_memories
