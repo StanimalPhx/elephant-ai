@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 
 from elephant.data.models import Correction, CurrentThread, Group, MediaLinks, Memory, Person
 from elephant.llm.prompts import describe_image
+from elephant.tools.definitions import ALLOWED_TOOL_NAMES, validate_tool_args
 
 if TYPE_CHECKING:
     from elephant.data.store import DataStore
@@ -117,10 +118,26 @@ class ToolExecutor:
     async def execute(self, tool_call: ToolCall) -> str:
         """Execute a tool call and return the JSON result string."""
         try:
+            name = tool_call.function_name
+            # Allowlist check — reject fabricated tool names
+            if name not in ALLOWED_TOOL_NAMES:
+                return json.dumps({"error": f"Unknown tool: {name}"})
+
             args = json.loads(tool_call.arguments) if tool_call.arguments else {}
-            handler = getattr(self, f"_handle_{tool_call.function_name}", None)
+
+            # Schema validation — reject malformed arguments
+            validation_errors = validate_tool_args(name, args)
+            if validation_errors:
+                return json.dumps({
+                    "error": f"Invalid arguments: {'; '.join(validation_errors)}",
+                    "retry_hint": (
+                        "This tool call failed. Review the error, fix the arguments, and retry."
+                    ),
+                })
+
+            handler = getattr(self, f"_handle_{name}", None)
             if handler is None:
-                return json.dumps({"error": f"Unknown tool: {tool_call.function_name}"})
+                return json.dumps({"error": f"Unknown tool: {name}"})
             result = await handler(args)
             if isinstance(result, dict) and "error" in result:
                 result["retry_hint"] = (
@@ -301,6 +318,25 @@ class ToolExecutor:
 
     async def _handle_delete_memory(self, args: dict[str, Any]) -> Any:
         memory_id = args["memory_id"]
+        confirm = args.get("confirm", False)
+
+        memory = self._store.find_memory_by_id(memory_id)
+        if memory is None:
+            return {"error": f"Memory not found: {memory_id}"}
+
+        if not confirm:
+            return {
+                "pending_delete": True,
+                "memory_id": memory_id,
+                "title": memory.title,
+                "date": str(memory.date),
+                "description": memory.description[:200],
+                "message": (
+                    f"Are you sure you want to delete '{memory.title}' ({memory.date})? "
+                    "Call delete_memory again with confirm=true to proceed."
+                ),
+            }
+
         deleted = self._store.delete_memory(memory_id)
         if not deleted:
             return {"error": f"Memory not found: {memory_id}"}
@@ -616,7 +652,12 @@ class ToolExecutor:
 
     async def _handle_describe_attachment(self, args: dict[str, Any]) -> Any:
         file_path = args.get("file_path", "")
-        path = Path(file_path)
+        path = Path(file_path).resolve()
+
+        # Restrict to the media directory to prevent path traversal
+        allowed_dir = Path(self._store.media_dir()).resolve()
+        if not path.is_relative_to(allowed_dir):
+            return {"error": "Access denied: file must be within the media directory"}
 
         if not path.is_file():
             return {"error": f"File not found: {file_path}"}

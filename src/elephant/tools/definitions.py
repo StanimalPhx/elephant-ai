@@ -16,6 +16,9 @@ QUERY_TOOLS: frozenset[str] = frozenset({
     "get_person", "list_people", "describe_attachment",
 })
 
+# Maximum allowed length for string-type arguments
+MAX_STRING_ARG_LENGTH = 5000
+
 TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "type": "function",
@@ -225,13 +228,23 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "delete_memory",
-            "description": "Delete a memory by ID.",
+            "description": (
+                "Delete a memory by ID. First call without confirm returns a preview. "
+                "You must call again with confirm=true to actually delete."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "memory_id": {
                         "type": "string",
                         "description": "The memory ID to delete",
+                    },
+                    "confirm": {
+                        "type": "boolean",
+                        "description": (
+                            "Set to true to confirm deletion. "
+                            "First call without this to preview what will be deleted."
+                        ),
                     },
                 },
                 "required": ["memory_id"],
@@ -497,3 +510,56 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
 ]
+
+# Derived allowlist — only these tool names are valid for dispatch
+ALLOWED_TOOL_NAMES: frozenset[str] = frozenset(
+    d["function"]["name"] for d in TOOL_DEFINITIONS
+)
+
+# Lookup: tool_name → parameter schema
+_TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
+    d["function"]["name"]: d["function"]["parameters"]
+    for d in TOOL_DEFINITIONS
+}
+
+
+def validate_tool_args(tool_name: str, args: dict[str, Any]) -> list[str]:
+    """Validate tool arguments against the schema. Returns a list of error messages."""
+    schema = _TOOL_SCHEMAS.get(tool_name)
+    if schema is None:
+        return [f"Unknown tool: {tool_name}"]
+
+    errors: list[str] = []
+    properties = schema.get("properties", {})
+    required = schema.get("required", [])
+
+    # Check required fields
+    for field in required:
+        if field not in args:
+            errors.append(f"Missing required field: {field}")
+
+    # Check types and enforce string size limits
+    for key, value in args.items():
+        if key not in properties:
+            continue  # Extra fields are tolerated (LLMs may hallucinate)
+        prop_schema = properties[key]
+        expected_type = prop_schema.get("type")
+
+        if expected_type == "string" and isinstance(value, str):
+            if len(value) > MAX_STRING_ARG_LENGTH:
+                errors.append(
+                    f"Field '{key}' exceeds max length "
+                    f"({len(value)} > {MAX_STRING_ARG_LENGTH})"
+                )
+        elif expected_type == "integer" and not isinstance(value, int):
+            errors.append(f"Field '{key}' must be an integer, got {type(value).__name__}")
+        elif expected_type == "number" and not isinstance(value, (int, float)):
+            errors.append(f"Field '{key}' must be a number, got {type(value).__name__}")
+        elif expected_type == "boolean" and not isinstance(value, bool):
+            errors.append(f"Field '{key}' must be a boolean, got {type(value).__name__}")
+        elif expected_type == "array" and not isinstance(value, list):
+            errors.append(f"Field '{key}' must be an array, got {type(value).__name__}")
+        elif expected_type == "object" and not isinstance(value, dict):
+            errors.append(f"Field '{key}' must be an object, got {type(value).__name__}")
+
+    return errors

@@ -1,6 +1,7 @@
 """Tests for tool executor: each handler with mocked DataStore."""
 
 import json
+import os
 from datetime import date
 from unittest.mock import AsyncMock, MagicMock
 
@@ -17,6 +18,7 @@ from elephant.tools.executor import ToolExecutor
 def executor(data_dir):
     store = DataStore(data_dir)
     store.initialize()
+    os.makedirs(store.media_dir(), exist_ok=True)
     git = MagicMock(spec=GitRepo)
     git.auto_commit = MagicMock(return_value="abc123")
     llm = AsyncMock()
@@ -301,7 +303,7 @@ class TestDeleteMemory:
 
         tc = ToolCall(
             id="1", function_name="delete_memory",
-            arguments=json.dumps({"memory_id": "20260224_park_day"}),
+            arguments=json.dumps({"memory_id": "20260224_park_day", "confirm": True}),
         )
         result = json.loads(await ex.execute(tc))
         assert result["deleted"] == "20260224_park_day"
@@ -693,11 +695,13 @@ class TestAutoCreatePerson:
 
 
 class TestDescribeAttachment:
-    async def test_image_returns_description(self, executor, tmp_path):
+    async def test_image_returns_description(self, executor):
         ex, store, git, llm = executor
-        # Create a fake image file
-        img = tmp_path / "photo.jpg"
-        img.write_bytes(b"\xff\xd8\xff\xe0fake-jpeg-data")
+        # Create a fake image file inside the media directory
+        media = store.media_dir()
+        img = os.path.join(media, "photo.jpg")
+        with open(img, "wb") as f:
+            f.write(b"\xff\xd8\xff\xe0fake-jpeg-data")
 
         llm.chat = AsyncMock(return_value=LLMResponse(
             content="A family photo at the park.", model="m", usage={},
@@ -705,21 +709,23 @@ class TestDescribeAttachment:
 
         tc = ToolCall(
             id="1", function_name="describe_attachment",
-            arguments=json.dumps({"file_path": str(img)}),
+            arguments=json.dumps({"file_path": img}),
         )
         result = json.loads(await ex.execute(tc))
         assert "description" in result
         assert "park" in result["description"].lower()
         llm.chat.assert_called_once()
 
-    async def test_text_file_returns_contents(self, executor, tmp_path):
+    async def test_text_file_returns_contents(self, executor):
         ex, store, git, llm = executor
-        doc = tmp_path / "notes.txt"
-        doc.write_text("Hello, this is a test document.")
+        media = store.media_dir()
+        doc = os.path.join(media, "notes.txt")
+        with open(doc, "w") as f:
+            f.write("Hello, this is a test document.")
 
         tc = ToolCall(
             id="1", function_name="describe_attachment",
-            arguments=json.dumps({"file_path": str(doc)}),
+            arguments=json.dumps({"file_path": doc}),
         )
         result = json.loads(await ex.execute(tc))
         assert result["file_type"] == "txt"
@@ -727,44 +733,52 @@ class TestDescribeAttachment:
 
     async def test_missing_file_returns_error(self, executor):
         ex, store, git, llm = executor
+        media = store.media_dir()
+        missing = os.path.join(media, "nonexistent.jpg")
         tc = ToolCall(
             id="1", function_name="describe_attachment",
-            arguments=json.dumps({"file_path": "/nonexistent/file.jpg"}),
+            arguments=json.dumps({"file_path": missing}),
         )
         result = json.loads(await ex.execute(tc))
         assert "error" in result
         assert "not found" in result["error"].lower()
 
-    async def test_large_file_truncated(self, executor, tmp_path):
+    async def test_large_file_truncated(self, executor):
         ex, store, git, llm = executor
-        doc = tmp_path / "big.csv"
-        doc.write_text("x" * 200_000)
+        media = store.media_dir()
+        doc = os.path.join(media, "big.csv")
+        with open(doc, "w") as f:
+            f.write("x" * 200_000)
 
         tc = ToolCall(
             id="1", function_name="describe_attachment",
-            arguments=json.dumps({"file_path": str(doc)}),
+            arguments=json.dumps({"file_path": doc}),
         )
         result = json.loads(await ex.execute(tc))
         assert result["file_type"] == "csv"
         assert len(result["contents"]) == 100_000
 
-    async def test_json_file_returns_contents(self, executor, tmp_path):
+    async def test_json_file_returns_contents(self, executor):
         ex, store, git, llm = executor
-        doc = tmp_path / "data.json"
-        doc.write_text('{"key": "value"}')
+        media = store.media_dir()
+        doc = os.path.join(media, "data.json")
+        with open(doc, "w") as f:
+            f.write('{"key": "value"}')
 
         tc = ToolCall(
             id="1", function_name="describe_attachment",
-            arguments=json.dumps({"file_path": str(doc)}),
+            arguments=json.dumps({"file_path": doc}),
         )
         result = json.loads(await ex.execute(tc))
         assert result["file_type"] == "json"
         assert '"key"' in result["contents"]
 
-    async def test_png_uses_vision(self, executor, tmp_path):
+    async def test_png_uses_vision(self, executor):
         ex, store, git, llm = executor
-        img = tmp_path / "screenshot.png"
-        img.write_bytes(b"\x89PNG\r\n\x1a\nfake-png-data")
+        media = store.media_dir()
+        img = os.path.join(media, "screenshot.png")
+        with open(img, "wb") as f:
+            f.write(b"\x89PNG\r\n\x1a\nfake-png-data")
 
         llm.chat = AsyncMock(return_value=LLMResponse(
             content="A screenshot of a chat.", model="m", usage={},
@@ -772,7 +786,7 @@ class TestDescribeAttachment:
 
         tc = ToolCall(
             id="1", function_name="describe_attachment",
-            arguments=json.dumps({"file_path": str(img)}),
+            arguments=json.dumps({"file_path": img}),
         )
         result = json.loads(await ex.execute(tc))
         assert "description" in result

@@ -284,12 +284,17 @@ class TestToolCoverage:
             if call_count == 6:
                 return _resp("Noted! I've saved Epoch Coffee as a favorite spot.")
 
-            # --- Message 4: delete memory ---
+            # --- Message 4: delete memory (preview then confirm) ---
             if call_count == 7:
                 return _resp(None, [_tc("tc_5", "delete_memory", {
                     "memory_id": expected_memory_id,
                 })])
-            # call_count == 8
+            if call_count == 8:
+                return _resp(None, [_tc("tc_6", "delete_memory", {
+                    "memory_id": expected_memory_id,
+                    "confirm": True,
+                })])
+            # call_count == 9
             return _resp("Done! I've removed that park memory.")
 
         llm.chat_with_tools = AsyncMock(side_effect=mock_llm)
@@ -305,7 +310,7 @@ class TestToolCoverage:
             "Actually remove that park memory, I already logged it", "Telegram",
         )
 
-        assert call_count == 8
+        assert call_count == 9
 
         # --- Verify memory was created then deleted ---
         memories = store.list_memories()
