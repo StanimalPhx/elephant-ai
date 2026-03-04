@@ -226,6 +226,23 @@ class PendingQuestionsFile(BaseModel):
     questions: list[PendingQuestion] = Field(default_factory=list)
 
 
+# --- Metrics ---
+
+
+class DailyMetrics(BaseModel):
+    date: date
+    memories_created: int = 0
+    digests_sent: int = 0
+    digest_replies: int = 0
+    questions_asked: int = 0
+    questions_answered: int = 0
+    checkins_sent: int = 0
+
+
+class MetricsFile(BaseModel):
+    days: list[DailyMetrics] = Field(default_factory=list)
+
+
 # --- Digest State ---
 
 

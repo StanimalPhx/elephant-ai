@@ -198,7 +198,10 @@ class MorningDigestFlow:
         })
         self._store.write_digest_state(state)
 
-        # 6. Git commit
+        # 6. Track metrics
+        self._store.increment_metric("digests_sent")
+
+        # 7. Git commit
         self._git.auto_commit(
             "morning",
             f"Digest sent ({len(top_memories)} memories)",

@@ -248,6 +248,7 @@ class ToolExecutor:
                 }
 
         path = self._store.write_memory(memory)
+        self._store.increment_metric("memories_created")
         self._git.auto_commit("memory", memory.title, timestamp=memory.date, paths=[path])
 
         # Auto-create confirmed unknowns

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from datetime import date
+from datetime import date as _date
 from typing import Any
 
 import yaml
@@ -13,9 +14,11 @@ from elephant.data.models import (
     AuthorizedChatsFile,
     ChatHistoryEntry,
     ChatHistoryFile,
+    DailyMetrics,
     DigestState,
     Group,
     Memory,
+    MetricsFile,
     PendingQuestionsFile,
     Person,
     PhotoEntry,
@@ -332,6 +335,34 @@ class DataStore:
             "digest_state.yaml",
             state.model_dump(mode="json", exclude_none=True),
         )
+
+    # --- Metrics ---
+
+    def read_metrics(self) -> MetricsFile:
+        raw = self._read_single_file("metrics.yaml")
+        return MetricsFile.model_validate({"days": raw.get("days", [])})
+
+    def write_metrics(self, metrics: MetricsFile) -> None:
+        self._write_single_file(
+            "metrics.yaml",
+            metrics.model_dump(mode="json"),
+        )
+
+    def increment_metric(self, metric_name: str, count: int = 1) -> None:
+        """Find or create today's DailyMetrics entry and increment the named field."""
+        today = _date.today()
+        metrics = self.read_metrics()
+        entry: DailyMetrics | None = None
+        for d in metrics.days:
+            if d.date == today:
+                entry = d
+                break
+        if entry is None:
+            entry = DailyMetrics(date=today)
+            metrics.days.append(entry)
+        current = getattr(entry, metric_name, 0)
+        setattr(entry, metric_name, current + count)
+        self.write_metrics(metrics)
 
     # --- Authorized Chats ---
 

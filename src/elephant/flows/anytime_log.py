@@ -256,6 +256,7 @@ class AnytimeLogFlow:
             "neutral": "Noted!",
         }
         response_text = responses.get(sentiment, "Noted!")
+        self._store.increment_metric("digest_replies")
         self._set_trace_response(response_text)
         await self._messaging.send_text(response_text)
 
@@ -274,6 +275,7 @@ class AnytimeLogFlow:
                     self._store,
                 )
                 if success:
+                    self._store.increment_metric("questions_answered")
                     self._git.auto_commit("enrichment", f"Answer to {q.id}")
                     self._set_trace_response("Thanks! I've updated the memory.")
                     await self._messaging.send_text("Thanks! I've updated the memory.")

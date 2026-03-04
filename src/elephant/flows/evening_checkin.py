@@ -44,5 +44,6 @@ class EveningCheckinFlow:
             logger.error("Failed to send evening checkin: %s", errors or "no approved chats")
             return False
 
+        self._store.increment_metric("checkins_sent")
         logger.info("Evening checkin sent")
         return True

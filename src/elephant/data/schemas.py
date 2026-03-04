@@ -391,6 +391,43 @@ last_digest_message_id: null
 last_digest_text: null
 """
 
+METRICS_SCHEMA = """\
+_schema:
+  version: 1
+  description: "Daily engagement metrics. Each entry tracks counters for one day."
+  fields:
+    days:
+      type: list[object]
+      required: false
+      default: []
+      description: "List of daily metric records"
+      fields:
+        date:
+          type: date
+          required: true
+          description: "The date for this metrics record"
+        memories_created:
+          type: integer
+          default: 0
+        digests_sent:
+          type: integer
+          default: 0
+        digest_replies:
+          type: integer
+          default: 0
+        questions_asked:
+          type: integer
+          default: 0
+        questions_answered:
+          type: integer
+          default: 0
+        checkins_sent:
+          type: integer
+          default: 0
+
+days: []
+"""
+
 AUTHORIZED_CHATS_SCHEMA = """\
 _schema:
   version: 1
@@ -463,6 +500,7 @@ SINGLE_FILE_SCHEMAS: dict[str, str] = {
     "preferences.yaml": PREFERENCES_SCHEMA,
     "pending_questions.yaml": PENDING_QUESTIONS_SCHEMA,
     "digest_state.yaml": DIGEST_STATE_SCHEMA,
+    "metrics.yaml": METRICS_SCHEMA,
     "authorized_chats.yaml": AUTHORIZED_CHATS_SCHEMA,
     "chat_history.yaml": CHAT_HISTORY_SCHEMA,
 }
