@@ -187,9 +187,16 @@ def morning_digest(
 def evening_checkin(
     people: list[Person],
     prefs: PreferencesFile,
+    memory_count_today: int = 0,
 ) -> list[dict[str, str]]:
     """Prompt to generate an evening check-in message."""
     context_str = _build_context_str(people, prefs)
+    activity = ""
+    if memory_count_today > 0:
+        activity = (
+            f"\nToday's activity: {memory_count_today} "
+            f"{'memory' if memory_count_today == 1 else 'memories'} logged so far."
+        )
     return [
         {
             "role": "system",
@@ -198,6 +205,7 @@ def evening_checkin(
                 "message asking the user what happened today worth remembering. "
                 "Keep it short (1-2 sentences). Vary the phrasing each time.\n\n"
                 f"Family context:\n{context_str}"
+                f"{activity}"
             ),
         },
         {"role": "user", "content": "Generate tonight's check-in prompt."},

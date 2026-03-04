@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import date
 from typing import TYPE_CHECKING
 
 from elephant.llm.prompts import evening_checkin
@@ -32,9 +33,13 @@ class EveningCheckinFlow:
 
     async def run(self) -> bool:
         """Send an evening check-in message. Returns True if sent."""
+        today = date.today()
+        todays_memories = self._store.list_memories(
+            date_from=today, date_to=today, limit=None,
+        )
         people = self._store.read_all_people()
         prefs = self._store.read_preferences()
-        messages = evening_checkin(people, prefs)
+        messages = evening_checkin(people, prefs, memory_count_today=len(todays_memories))
         response = await self._llm.chat(messages, model=self._model)
         checkin_text = (response.content or "").strip()
 
