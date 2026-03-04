@@ -428,6 +428,33 @@ _schema:
 days: []
 """
 
+NUDGE_STATE_SCHEMA = """\
+_schema:
+  version: 1
+  description: "Tracks when contact nudges were sent per person."
+  fields:
+    records:
+      type: list[object]
+      required: false
+      default: []
+      description: "List of nudge records"
+      fields:
+        person_id:
+          type: string
+          required: true
+          description: "person_id of the nudged contact"
+        last_nudged_at:
+          type: date
+          required: true
+          description: "Date when the nudge was last sent"
+        context:
+          type: string
+          required: false
+          description: "Context of the nudge (e.g. morning_digest, evening_checkin)"
+
+records: []
+"""
+
 AUTHORIZED_CHATS_SCHEMA = """\
 _schema:
   version: 1
@@ -501,6 +528,7 @@ SINGLE_FILE_SCHEMAS: dict[str, str] = {
     "pending_questions.yaml": PENDING_QUESTIONS_SCHEMA,
     "digest_state.yaml": DIGEST_STATE_SCHEMA,
     "metrics.yaml": METRICS_SCHEMA,
+    "nudge_state.yaml": NUDGE_STATE_SCHEMA,
     "authorized_chats.yaml": AUTHORIZED_CHATS_SCHEMA,
     "chat_history.yaml": CHAT_HISTORY_SCHEMA,
 }

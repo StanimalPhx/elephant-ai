@@ -238,6 +238,7 @@ class DailyMetrics(BaseModel):
     questions_answered: int = 0
     checkins_sent: int = 0
     weekly_recaps_sent: int = 0
+    nudges_sent: int = 0
 
 
 class MetricsFile(BaseModel):
@@ -252,6 +253,19 @@ class DigestState(BaseModel):
     last_digest_memory_ids: list[str] = Field(default_factory=list)
     last_digest_message_id: str | None = None
     last_digest_text: str | None = None
+
+
+# --- Nudge State ---
+
+
+class NudgeRecord(BaseModel):
+    person_id: str
+    last_nudged_at: date
+    context: str | None = None
+
+
+class NudgeStateFile(BaseModel):
+    records: list[NudgeRecord] = Field(default_factory=list)
 
 
 # --- Authorized Chats ---

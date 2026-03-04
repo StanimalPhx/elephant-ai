@@ -11,6 +11,11 @@ from typing import TYPE_CHECKING, Any
 
 from elephant.brain.clarification import is_thin_memory
 from elephant.data.models import PendingQuestion, Person
+from elephant.flows.contact_nudges import (
+    find_overdue_contacts,
+    format_nudges_for_prompt,
+    record_nudge,
+)
 from elephant.llm.prompts import generate_question_text, morning_digest, morning_question
 from elephant.memory_scorer import score_memory
 
@@ -169,6 +174,18 @@ class MorningDigestFlow:
                 }
                 for r in birthdays
             ]
+
+        # 4a. Contact nudges
+        names_with_target = [
+            p.display_name for p in people if p.interaction_frequency_target is not None
+        ]
+        last_contacts = self._store.get_latest_memory_dates_for_people(names_with_target)
+        nudge_state = self._store.read_nudge_state()
+        nudges = find_overdue_contacts(
+            people, last_contacts, nudge_state.records, today, max_nudges=2,
+        )
+        nudges_text = format_nudges_for_prompt(nudges) or None
+
         messages = morning_digest(
             memories_data,
             people,
@@ -176,6 +193,7 @@ class MorningDigestFlow:
             tone_style=prefs.tone_preference.style,
             tone_length=prefs.tone_preference.length,
             birthdays=birthday_data,
+            nudges=nudges_text,
         )
         response = await self._llm.chat(messages, model=self._model)
         digest_text = (response.content or "").strip()
@@ -198,7 +216,14 @@ class MorningDigestFlow:
         })
         self._store.write_digest_state(state)
 
-        # 6. Track metrics
+        # 6. Record nudges sent
+        if nudges:
+            for nudge in nudges:
+                record_nudge(nudge_state, nudge.person.person_id, today, "morning_digest")
+            self._store.write_nudge_state(nudge_state)
+            self._store.increment_metric("nudges_sent", count=len(nudges))
+
+        # 6b. Track metrics
         self._store.increment_metric("digests_sent")
 
         # 7. Git commit

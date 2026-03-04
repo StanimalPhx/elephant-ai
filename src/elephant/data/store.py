@@ -19,6 +19,7 @@ from elephant.data.models import (
     Group,
     Memory,
     MetricsFile,
+    NudgeStateFile,
     PendingQuestionsFile,
     Person,
     PhotoEntry,
@@ -334,6 +335,18 @@ class DataStore:
         self._write_single_file(
             "digest_state.yaml",
             state.model_dump(mode="json", exclude_none=True),
+        )
+
+    # --- Nudge State ---
+
+    def read_nudge_state(self) -> NudgeStateFile:
+        raw = self._read_single_file("nudge_state.yaml")
+        return NudgeStateFile.model_validate({"records": raw.get("records", [])})
+
+    def write_nudge_state(self, state: NudgeStateFile) -> None:
+        self._write_single_file(
+            "nudge_state.yaml",
+            state.model_dump(mode="json"),
         )
 
     # --- Metrics ---
