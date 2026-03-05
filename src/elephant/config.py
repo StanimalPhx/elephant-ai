@@ -48,6 +48,7 @@ class ScheduleConfig:
     evening_checkin: str = "20:00"
     monthly_report: str = "09:00"
     weekly_recap: str = "10:00"
+    year_in_review: str = "10:00"
     timezone: str = "America/Chicago"
 
 

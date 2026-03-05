@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from elephant.flows.monthly_report import MonthlyReportFlow
     from elephant.flows.morning_digest import MorningDigestFlow
     from elephant.flows.weekly_recap import WeeklyRecapFlow
+    from elephant.flows.year_in_review import YearInReviewFlow
     from elephant.git_ops import GitRepo
     from elephant.messaging.base import MessagingClient
 
@@ -33,4 +34,5 @@ class DatabaseInstance:
     question_mgr: QuestionManager
     monthly_report: MonthlyReportFlow
     weekly_recap: WeeklyRecapFlow
+    year_in_review: YearInReviewFlow
     schedule: ScheduleConfig

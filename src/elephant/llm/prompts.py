@@ -453,6 +453,71 @@ def describe_image(
     ]
 
 
+def year_in_review(
+    year: int,
+    total_memories: int,
+    unique_people: int,
+    memories_by_type: dict[str, int],
+    top_memories: list[dict[str, Any]],
+    top_people: list[tuple[str, int]],
+    milestones_count: int,
+    people: list[Person],
+    prefs: PreferencesFile,
+) -> list[dict[str, str]]:
+    """Prompt to generate a year-in-review narrative."""
+    context_str = _build_context_str(people, prefs)
+
+    stats = (
+        f"Year: {year}\n"
+        f"Total memories: {total_memories}\n"
+        f"Unique people mentioned: {unique_people}\n"
+        f"Milestones: {milestones_count}\n"
+    )
+    if memories_by_type:
+        type_str = ", ".join(f"{k}: {v}" for k, v in memories_by_type.items())
+        stats += f"By type: {type_str}\n"
+    if top_people:
+        people_str = ", ".join(f"{name} ({count})" for name, count in top_people)
+        stats += f"Most mentioned: {people_str}\n"
+
+    highlights_str = ""
+    if top_memories:
+        parts: list[str] = []
+        for h in top_memories:
+            entry = (
+                f"Date: {h.get('date')}\nTitle: {h.get('title')}\n"
+                f"Description: {h.get('description')}\n"
+                f"People: {h.get('people')}\nType: {h.get('type')}"
+            )
+            parts.append(entry)
+        highlights_str = "\n---\n".join(parts)
+
+    tone = prefs.tone_preference
+
+    return [
+        {
+            "role": "system",
+            "content": (
+                "You are a warm family storyteller. Generate a year-in-review message "
+                "that celebrates the family's year. Include key statistics, highlight "
+                "the most meaningful memories, mention the people who appeared most, "
+                "and weave it into a warm narrative. "
+                f"Tone: {tone.style}. Length: long.\n\n"
+                f"Family context:\n{context_str}"
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                f"Year-in-review statistics:\n\n{stats}\n"
+                f"Top memories:\n\n{highlights_str}"
+                if highlights_str
+                else f"Year-in-review statistics:\n\n{stats}"
+            ),
+        },
+    ]
+
+
 def check_injection(text: str) -> list[dict[str, str]]:
     """Prompt to classify whether user input contains a prompt injection attempt."""
     return [

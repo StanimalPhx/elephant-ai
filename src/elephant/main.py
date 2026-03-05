@@ -25,6 +25,7 @@ from elephant.flows.evening_checkin import EveningCheckinFlow
 from elephant.flows.monthly_report import MonthlyReportFlow
 from elephant.flows.morning_digest import MorningDigestFlow
 from elephant.flows.weekly_recap import WeeklyRecapFlow
+from elephant.flows.year_in_review import YearInReviewFlow
 from elephant.git_ops import GitRepo
 from elephant.health import create_app
 from elephant.llm.client import LLMClient
@@ -169,6 +170,12 @@ async def run(
             model=config.llm.morning_model,
             messaging=messaging,
         )
+        year_review = YearInReviewFlow(
+            store=store,
+            llm=llm,
+            model=config.llm.morning_model,
+            messaging=messaging,
+        )
 
         db = DatabaseInstance(
             name=db_cfg.name,
@@ -182,6 +189,7 @@ async def run(
             question_mgr=question_mgr,
             monthly_report=monthly,
             weekly_recap=weekly,
+            year_in_review=year_review,
             schedule=db_cfg.schedule,
         )
         router.register_database(db)
@@ -211,6 +219,10 @@ async def run(
             900, db.question_mgr.process_pending,
             name=f"{db.name}:question_manager",
         )
+        sched.schedule_yearly(
+            12, 31, db.schedule.year_in_review, db.year_in_review.run,
+            name=f"{db.name}:year_in_review",
+        )
         schedulers.append(sched)
 
     # 6. Build flows dict for API (namespaced by db)
@@ -221,6 +233,7 @@ async def run(
         flows[f"{db.name}:monthly_report"] = db.monthly_report.run
         flows[f"{db.name}:weekly_recap"] = db.weekly_recap.run
         flows[f"{db.name}:question_manager"] = db.question_mgr.process_pending
+        flows[f"{db.name}:year_in_review"] = db.year_in_review.run
 
     # 7. Start web server
     app = create_app(

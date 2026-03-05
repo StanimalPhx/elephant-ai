@@ -127,6 +127,43 @@ class Scheduler:
 
         self._tasks.append(asyncio.ensure_future(_loop()))
 
+    def schedule_yearly(
+        self,
+        month: int,
+        day: int,
+        time_str: str,
+        callback: ScheduleCallback,
+        name: str = "",
+    ) -> None:
+        """Schedule a callback to run once a year on a specific month/day at a given time."""
+        hour, minute = (int(x) for x in time_str.split(":"))
+
+        async def _loop() -> None:
+            while self._running:
+                now = datetime.now(self._tz)
+                year = now.year
+                target_day = min(day, calendar.monthrange(year, month)[1])
+                target = now.replace(
+                    month=month, day=target_day,
+                    hour=hour, minute=minute, second=0, microsecond=0,
+                )
+                if target <= now:
+                    year += 1
+                    target_day = min(day, calendar.monthrange(year, month)[1])
+                    target = target.replace(year=year, month=month, day=target_day)
+                wait_seconds = (target - now).total_seconds()
+                label = name or f"yearly@{month}/{day}/{time_str}"
+                logger.info("Scheduler: %s next run in %.0fs", label, wait_seconds)
+                await asyncio.sleep(wait_seconds)
+                if not self._running:
+                    break
+                try:
+                    await callback()
+                except Exception:
+                    logger.exception("Scheduler: %s failed", label)
+
+        self._tasks.append(asyncio.ensure_future(_loop()))
+
     def schedule_periodic(
         self,
         interval_seconds: float,

@@ -239,6 +239,7 @@ class DailyMetrics(BaseModel):
     checkins_sent: int = 0
     weekly_recaps_sent: int = 0
     nudges_sent: int = 0
+    year_reviews_sent: int = 0
 
 
 class MetricsFile(BaseModel):

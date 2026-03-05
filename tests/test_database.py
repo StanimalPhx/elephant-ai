@@ -21,6 +21,7 @@ class TestDatabaseInstance:
             question_mgr=MagicMock(),
             monthly_report=MagicMock(),
             weekly_recap=MagicMock(),
+            year_in_review=MagicMock(),
             schedule=ScheduleConfig(),
         )
         assert db.name == "test_db"
@@ -36,14 +37,16 @@ class TestDatabaseInstance:
             store=store_a, git=MagicMock(), messaging=MagicMock(),
             anytime=MagicMock(), morning=MagicMock(), evening=MagicMock(),
             question_mgr=MagicMock(), monthly_report=MagicMock(),
-            weekly_recap=MagicMock(), schedule=ScheduleConfig(),
+            weekly_recap=MagicMock(), year_in_review=MagicMock(),
+            schedule=ScheduleConfig(),
         )
         db_b = DatabaseInstance(
             name="b", auth_secret="sec_b",
             store=store_b, git=MagicMock(), messaging=MagicMock(),
             anytime=MagicMock(), morning=MagicMock(), evening=MagicMock(),
             question_mgr=MagicMock(), monthly_report=MagicMock(),
-            weekly_recap=MagicMock(), schedule=ScheduleConfig(),
+            weekly_recap=MagicMock(), year_in_review=MagicMock(),
+            schedule=ScheduleConfig(),
         )
         assert db_a.store is not db_b.store
         assert db_a.name != db_b.name
