@@ -136,13 +136,20 @@ async def git_show_handler(request: web.Request) -> web.Response:
 
 async def people_handler(request: web.Request) -> web.Response:
     """Return all people for a database."""
+    from elephant.brain.people_completeness import score_person
+
     db = _find_db(request)
     if db is None:
         db_name = request.match_info["db_name"]
         return web.json_response({"error": f"unknown database: {db_name}"}, status=404)
 
     people = db.store.read_all_people()
-    return web.json_response({"people": [p.model_dump(mode="json") for p in people]})
+    result = []
+    for p in people:
+        data = p.model_dump(mode="json")
+        data["completeness_score"] = score_person(p)
+        result.append(data)
+    return web.json_response({"people": result})
 
 
 # ---------------------------------------------------------------------------

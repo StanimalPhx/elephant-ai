@@ -118,6 +118,11 @@ class MonthlyReportFlow:
         else:
             coverage_text = None
 
+        # People completeness
+        from elephant.brain.people_completeness import format_completeness_for_monthly
+
+        completeness_text = format_completeness_for_monthly(people)
+
         # Build report
         report = self._format_report(
             month_name=month_name,
@@ -131,6 +136,7 @@ class MonthlyReportFlow:
             total_checkins=total_checkins,
             churn_text=churn_text,
             coverage_text=coverage_text,
+            completeness_text=completeness_text,
         )
 
         results = await self._messaging.broadcast_text(report)
@@ -155,6 +161,7 @@ class MonthlyReportFlow:
         total_checkins: int,
         churn_text: str | None = None,
         coverage_text: str | None = None,
+        completeness_text: str | None = None,
     ) -> str:
         from elephant.data.models import NostalgiaWeights, TonePreference
 
@@ -191,6 +198,9 @@ class MonthlyReportFlow:
 
         if coverage_text:
             lines.append(f"\n{coverage_text}")
+
+        if completeness_text:
+            lines.append(f"\n{completeness_text}")
 
         lines.append(f"\nYour style: {tone.style}, {tone.length}")
         lines.append("\nKeep sharing \u2014 your elephant never forgets! \U0001f418")
