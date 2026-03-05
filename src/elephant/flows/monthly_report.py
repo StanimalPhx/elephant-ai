@@ -106,6 +106,18 @@ class MonthlyReportFlow:
         )
         churn_text = format_churn_for_monthly(churn_signals, len(people))
 
+        # Coverage gaps
+        from elephant.brain.coverage import find_coverage_gaps, format_gaps_for_monthly
+
+        all_memories = self._store.list_memories(limit=None)
+        if all_memories:
+            first_memory_date = min(m.date for m in all_memories)
+            # Only look at months up to last month
+            coverage_gaps = find_coverage_gaps(all_memories, first_memory_date, last_of_last_month)
+            coverage_text = format_gaps_for_monthly(coverage_gaps)
+        else:
+            coverage_text = None
+
         # Build report
         report = self._format_report(
             month_name=month_name,
@@ -118,6 +130,7 @@ class MonthlyReportFlow:
             total_replies=total_replies,
             total_checkins=total_checkins,
             churn_text=churn_text,
+            coverage_text=coverage_text,
         )
 
         results = await self._messaging.broadcast_text(report)
@@ -141,6 +154,7 @@ class MonthlyReportFlow:
         total_replies: int,
         total_checkins: int,
         churn_text: str | None = None,
+        coverage_text: str | None = None,
     ) -> str:
         from elephant.data.models import NostalgiaWeights, TonePreference
 
@@ -174,6 +188,9 @@ class MonthlyReportFlow:
 
         if churn_text:
             lines.append(f"\n{churn_text}")
+
+        if coverage_text:
+            lines.append(f"\n{coverage_text}")
 
         lines.append(f"\nYour style: {tone.style}, {tone.length}")
         lines.append("\nKeep sharing \u2014 your elephant never forgets! \U0001f418")
