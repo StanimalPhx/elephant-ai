@@ -161,6 +161,73 @@ async def groups_handler(request: web.Request) -> web.Response:
 
 
 # ---------------------------------------------------------------------------
+# GET /api/memories/{db_name}?page=0&per_page=50&person=&type=&year=
+# ---------------------------------------------------------------------------
+
+
+def _memory_summary(memory: object) -> dict[str, Any]:
+    """Project a Memory into an API response dict."""
+    from elephant.data.models import Memory
+
+    assert isinstance(memory, Memory)
+    return {
+        "id": memory.id,
+        "date": memory.date.isoformat(),
+        "title": memory.title,
+        "type": memory.type,
+        "people": memory.people,
+        "description": memory.description,
+        "nostalgia_score": memory.nostalgia_score,
+        "location": memory.location,
+    }
+
+
+async def memories_list_handler(request: web.Request) -> web.Response:
+    """Return paginated, filtered memories for a database."""
+    from datetime import date
+
+    db = _find_db(request)
+    if db is None:
+        db_name = request.match_info["db_name"]
+        return web.json_response({"error": f"unknown database: {db_name}"}, status=404)
+
+    page = int(request.query.get("page", "0"))
+    per_page = int(request.query.get("per_page", "50"))
+    person = request.query.get("person", "").strip()
+    memory_type = request.query.get("type", "").strip()
+    year = request.query.get("year", "").strip()
+
+    date_from = None
+    date_to = None
+    if year:
+        try:
+            y = int(year)
+            date_from = date(y, 1, 1)
+            date_to = date(y, 12, 31)
+        except ValueError:
+            pass
+
+    people_filter = [person] if person else None
+    type_filter = memory_type if memory_type else None
+
+    all_memories = db.store.list_memories(
+        date_from=date_from,
+        date_to=date_to,
+        people=people_filter,
+        memory_type=type_filter,
+        limit=None,
+    )
+    total = len(all_memories)
+    offset = page * per_page
+    page_memories = all_memories[offset : offset + per_page]
+
+    return web.json_response({
+        "memories": [_memory_summary(m) for m in page_memories],
+        "total": total,
+    })
+
+
+# ---------------------------------------------------------------------------
 # SPA catch-all: serve index.html for client-side routing
 # ---------------------------------------------------------------------------
 
@@ -183,6 +250,7 @@ def register_routes(app: web.Application, router: ChatRouter) -> None:
     app.router.add_get("/api/git/{db_name}/{sha}", git_show_handler)
     app.router.add_get("/api/people/{db_name}", people_handler)
     app.router.add_get("/api/groups/{db_name}", groups_handler)
+    app.router.add_get("/api/memories/{db_name}", memories_list_handler)
 
     # Static assets from the frontend build
     dist_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend", "dist")

@@ -10,6 +10,7 @@ from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING, Any
 
 from elephant.brain.clarification import is_thin_memory
+from elephant.brain.engagement import compute_churn_signals, format_churn_for_digest
 from elephant.data.models import PendingQuestion, Person
 from elephant.flows.contact_nudges import (
     find_overdue_contacts,
@@ -186,6 +187,36 @@ class MorningDigestFlow:
         )
         nudges_text = format_nudges_for_prompt(nudges) or None
 
+        # 4b. Churn signals
+        from datetime import timedelta
+
+        memories_30d = self._store.list_memories(
+            date_from=today - timedelta(days=30), date_to=today, limit=None,
+        )
+        metrics = self._store.read_metrics()
+        metrics_30d = [
+            d for d in metrics.days if d.date >= today - timedelta(days=30)
+        ]
+        pq = self._store.read_pending_questions()
+        churn_state = self._store.read_churn_state()
+        known_names = {p.display_name for p in people}
+        churn_signals = compute_churn_signals(
+            today, memories_30d, metrics_30d, pq.questions, known_names, churn_state,
+        )
+
+        # If digest is paused due to negative feedback streak, send recovery message
+        if churn_signals.negative_feedback_streak:
+            recovery = (
+                "I'm giving you a little breathing room from digests. "
+                "Just reply whenever you're ready to hear from me again!"
+            )
+            results = await self._messaging.broadcast_text(recovery)
+            if results and any(r.success for r in results):
+                logger.info("Digest paused (churn): sent recovery message")
+            return False
+
+        churn_text = format_churn_for_digest(churn_signals)
+
         messages = morning_digest(
             memories_data,
             people,
@@ -194,6 +225,7 @@ class MorningDigestFlow:
             tone_length=prefs.tone_preference.length,
             birthdays=birthday_data,
             nudges=nudges_text,
+            churn_signals=churn_text,
         )
         response = await self._llm.chat(messages, model=self._model)
         digest_text = (response.content or "").strip()

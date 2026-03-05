@@ -125,6 +125,7 @@ def morning_digest(
     tone_length: str = "short",
     birthdays: list[dict[str, Any]] | None = None,
     nudges: str | None = None,
+    churn_signals: str | None = None,
 ) -> list[dict[str, str]]:
     """Prompt to generate a morning digest story."""
     context_str = _build_context_str(people, prefs)
@@ -179,6 +180,12 @@ def morning_digest(
             + "\n(Gently weave a reminder into the message, like 'Maybe drop X a message?')"
         )
 
+    if churn_signals:
+        system_content += (
+            "\n\nEngagement note: " + churn_signals
+            + "\n(Weave this naturally into the message as gentle encouragement.)"
+        )
+
     user_content = (
         f"Today's memories from previous years:\n\n{memories_str}"
         if memories_str
@@ -196,6 +203,7 @@ def evening_checkin(
     prefs: PreferencesFile,
     memory_count_today: int = 0,
     nudges: str | None = None,
+    churn_signals: str | None = None,
 ) -> list[dict[str, str]]:
     """Prompt to generate an evening check-in message."""
     context_str = _build_context_str(people, prefs)
@@ -205,6 +213,19 @@ def evening_checkin(
             f"\nToday's activity: {memory_count_today} "
             f"{'memory' if memory_count_today == 1 else 'memories'} logged so far."
         )
+
+    extra = ""
+    if nudges:
+        extra += (
+            f"\n\n{nudges}\n(Gently mention reaching out, "
+            "like 'Have you talked to X lately?')"
+        )
+    if churn_signals:
+        extra += (
+            f"\n\nEngagement note: {churn_signals}"
+            "\n(Weave this naturally as gentle encouragement.)"
+        )
+
     return [
         {
             "role": "system",
@@ -214,12 +235,7 @@ def evening_checkin(
                 "Keep it short (1-2 sentences). Vary the phrasing each time.\n\n"
                 f"Family context:\n{context_str}"
                 f"{activity}"
-                + (
-                    f"\n\n{nudges}\n(Gently mention reaching out, "
-                    "like 'Have you talked to X lately?')"
-                    if nudges
-                    else ""
-                )
+                f"{extra}"
             ),
         },
         {"role": "user", "content": "Generate tonight's check-in prompt."},

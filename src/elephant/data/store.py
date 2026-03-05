@@ -14,6 +14,7 @@ from elephant.data.models import (
     AuthorizedChatsFile,
     ChatHistoryEntry,
     ChatHistoryFile,
+    ChurnStateFile,
     DailyMetrics,
     DigestState,
     Group,
@@ -346,6 +347,22 @@ class DataStore:
     def write_nudge_state(self, state: NudgeStateFile) -> None:
         self._write_single_file(
             "nudge_state.yaml",
+            state.model_dump(mode="json"),
+        )
+
+    # --- Churn State ---
+
+    def read_churn_state(self) -> ChurnStateFile:
+        raw = self._read_single_file("churn_state.yaml")
+        return ChurnStateFile.model_validate({
+            "consecutive_negative_sentiments": raw.get("consecutive_negative_sentiments", 0),
+            "last_negative_streak_reset": raw.get("last_negative_streak_reset"),
+            "digest_paused_until": raw.get("digest_paused_until"),
+        })
+
+    def write_churn_state(self, state: ChurnStateFile) -> None:
+        self._write_single_file(
+            "churn_state.yaml",
             state.model_dump(mode="json"),
         )
 

@@ -56,7 +56,10 @@ export default function TraceList() {
         <Link to="/">Databases</Link>
         <span>/</span>
         <strong>{dbName}</strong>
-        <span style={{ marginLeft: 'auto' }}><Link to={`/${dbName}/people`}>People</Link></span>
+        <span style={{ marginLeft: 'auto', display: 'flex', gap: '1rem' }}>
+          <Link to={`/${dbName}/timeline`}>Timeline</Link>
+          <Link to={`/${dbName}/people`}>People</Link>
+        </span>
       </div>
       <h1>Traces</h1>
 

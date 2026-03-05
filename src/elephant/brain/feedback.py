@@ -124,6 +124,15 @@ async def process_feedback(
     new_prefs = adjust_weights(prefs, sentiment, features)
     store.write_preferences(new_prefs)
 
+    # Update churn state based on sentiment
+    from datetime import date as _date_cls
+
+    from elephant.brain.engagement import update_churn_state_after_feedback
+
+    churn_state = store.read_churn_state()
+    new_churn = update_churn_state_after_feedback(churn_state, sentiment, _date_cls.today())
+    store.write_churn_state(new_churn)
+
     first_mid = digest_memory_ids[0] if digest_memory_ids else "no memories"
     git.auto_commit("feedback", f"{sentiment.capitalize()} — {first_mid}")
     logger.info("Feedback processed: %s (adjusted %d features)", sentiment, len(features))

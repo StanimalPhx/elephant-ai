@@ -268,6 +268,15 @@ class NudgeStateFile(BaseModel):
     records: list[NudgeRecord] = Field(default_factory=list)
 
 
+# --- Churn State ---
+
+
+class ChurnStateFile(BaseModel):
+    consecutive_negative_sentiments: int = 0
+    last_negative_streak_reset: date | None = None
+    digest_paused_until: date | None = None
+
+
 # --- Authorized Chats ---
 
 

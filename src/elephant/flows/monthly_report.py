@@ -95,6 +95,17 @@ class MonthlyReportFlow:
         total_replies = sum(d.digest_replies for d in month_metrics)
         total_checkins = sum(d.checkins_sent for d in month_metrics)
 
+        # Churn: check for no-new-people signal
+        from elephant.brain.engagement import compute_churn_signals, format_churn_for_monthly
+
+        people = self._store.read_all_people()
+        churn_state = self._store.read_churn_state()
+        known_names = {p.display_name for p in people}
+        churn_signals = compute_churn_signals(
+            today, memories, month_metrics, [], known_names, churn_state,
+        )
+        churn_text = format_churn_for_monthly(churn_signals, len(people))
+
         # Build report
         report = self._format_report(
             month_name=month_name,
@@ -106,6 +117,7 @@ class MonthlyReportFlow:
             total_digests=total_digests,
             total_replies=total_replies,
             total_checkins=total_checkins,
+            churn_text=churn_text,
         )
 
         results = await self._messaging.broadcast_text(report)
@@ -128,6 +140,7 @@ class MonthlyReportFlow:
         total_digests: int,
         total_replies: int,
         total_checkins: int,
+        churn_text: str | None = None,
     ) -> str:
         from elephant.data.models import NostalgiaWeights, TonePreference
 
@@ -158,6 +171,9 @@ class MonthlyReportFlow:
             arrow = _weight_arrow(value)
             desc = _weight_description(value)
             lines.append(f"\u2022 {label}: {arrow}{desc}")
+
+        if churn_text:
+            lines.append(f"\n{churn_text}")
 
         lines.append(f"\nYour style: {tone.style}, {tone.length}")
         lines.append("\nKeep sharing \u2014 your elephant never forgets! \U0001f418")

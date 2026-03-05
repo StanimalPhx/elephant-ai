@@ -6,6 +6,7 @@ import logging
 from datetime import date
 from typing import TYPE_CHECKING
 
+from elephant.brain.engagement import compute_churn_signals, format_churn_for_checkin
 from elephant.flows.contact_nudges import (
     find_overdue_contacts,
     format_nudges_for_prompt,
@@ -56,8 +57,25 @@ class EveningCheckinFlow:
         )
         nudges_text = format_nudges_for_prompt(nudges) or None
 
+        # Churn signals
+        from datetime import timedelta
+
+        memories_30d = self._store.list_memories(
+            date_from=today - timedelta(days=30), date_to=today, limit=None,
+        )
+        metrics = self._store.read_metrics()
+        metrics_30d = [d for d in metrics.days if d.date >= today - timedelta(days=30)]
+        pq = self._store.read_pending_questions()
+        churn_state = self._store.read_churn_state()
+        known_names = {p.display_name for p in people}
+        churn_signals = compute_churn_signals(
+            today, memories_30d, metrics_30d, pq.questions, known_names, churn_state,
+        )
+        churn_text = format_churn_for_checkin(churn_signals)
+
         messages = evening_checkin(
-            people, prefs, memory_count_today=len(todays_memories), nudges=nudges_text,
+            people, prefs, memory_count_today=len(todays_memories),
+            nudges=nudges_text, churn_signals=churn_text,
         )
         response = await self._llm.chat(messages, model=self._model)
         checkin_text = (response.content or "").strip()
