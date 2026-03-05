@@ -110,10 +110,17 @@ class ToolExecutor:
         self._llm = llm
         self._model = model
         self._current_message_id: str | None = None
+        self._current_source_user: str | None = None
 
-    def set_message_context(self, *, message_id: str | None = None) -> None:
+    def set_message_context(
+        self,
+        *,
+        message_id: str | None = None,
+        source_user: str | None = None,
+    ) -> None:
         """Set the current message context for source tracking."""
         self._current_message_id = message_id
+        self._current_source_user = source_user
 
     async def execute(self, tool_call: ToolCall) -> str:
         """Execute a tool call and return the JSON result string."""
@@ -223,6 +230,7 @@ class ToolExecutor:
             content=args.get("content"),
             participants=args.get("participants", []),
             attributes=args.get("attributes", {}),
+            source_user=self._current_source_user,
         )
 
         # Check for unknown people before writing

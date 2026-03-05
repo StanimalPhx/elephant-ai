@@ -186,6 +186,7 @@ def _memory_summary(memory: object) -> dict[str, Any]:
         "description": memory.description,
         "nostalgia_score": memory.nostalgia_score,
         "location": memory.location,
+        "source_user": memory.source_user,
     }
 
 

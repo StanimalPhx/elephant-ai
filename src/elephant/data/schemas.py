@@ -92,6 +92,10 @@ fields:
     description: >-
       Flexible key-value metadata (e.g. mood, weather, occasion).
       Snake_case keys, string values.
+  source_user:
+    type: string
+    required: false
+    description: "Display name of the user who contributed this memory"
 """
 
 PHOTO_INDEX_SCHEMA = """\

@@ -79,6 +79,7 @@ class Memory(BaseModel):
     media_refs: list[str] = Field(default_factory=list)
     corrections: list[Correction] = Field(default_factory=list)
     attributes: dict[str, str] = Field(default_factory=dict)
+    source_user: str | None = None
 
     def resolved_value(self, field_name: str) -> Any:
         """Return the latest corrected value for a field, or the original."""

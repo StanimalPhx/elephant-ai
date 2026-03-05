@@ -129,6 +129,14 @@ class AnytimeLogFlow:
             if finished is not None:
                 self._store.append_trace(finished)
 
+    def _resolve_sender_display_name(self, sender: str) -> str | None:
+        """Look up the display name for a sender from authorized chats."""
+        chats = self._store.read_authorized_chats()
+        for chat in chats.chats:
+            if chat.chat_id == sender and chat.display_name:
+                return chat.display_name
+        return None
+
     async def _handle_with_agent(self, message: IncomingMessage) -> None:
         """Route message through the conversational agent."""
         source = "Telegram" if message.sender.isdigit() else "WhatsApp"
@@ -162,9 +170,11 @@ class AnytimeLogFlow:
                     logger.warning("Failed to describe image, using fallback text", exc_info=True)
                     text = "Photo shared"
 
+        sender_name = self._resolve_sender_display_name(message.sender)
         response_text = await self._agent.handle(
             text, source, attachments=message.attachments or None,
             message_id=message.message_id,
+            source_user=sender_name,
         )
         self._set_trace_response(response_text)
         await self._messaging.send_text(response_text)
@@ -226,8 +236,11 @@ class AnytimeLogFlow:
             await self._messaging.send_text("I couldn't find any memories in that file.")
             return
 
+        sender_name = self._resolve_sender_display_name(message.sender)
         for memory in memories:
             memory.source_message_ids = [message.message_id]
+            if sender_name:
+                memory.source_user = sender_name
             path = self._store.write_memory(memory)
             self._git.auto_commit("memory", memory.title, timestamp=memory.date, paths=[path])
 

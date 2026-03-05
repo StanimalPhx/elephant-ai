@@ -155,6 +155,7 @@ class ConversationalAgent:
         source: str,
         attachments: list[Any] | None = None,
         message_id: str | None = None,
+        source_user: str | None = None,
     ) -> str:
         """Process a user message through the tool-calling loop. Returns the final text."""
         # Input guardrails: truncate oversized messages
@@ -171,7 +172,7 @@ class ConversationalAgent:
             self._check_injection_llm(user_message, regex_flagged)
         )
 
-        self._executor.set_message_context(message_id=message_id)
+        self._executor.set_message_context(message_id=message_id, source_user=source_user)
         people = self._store.read_all_people()
         prefs = self._store.read_preferences()
         today = date.today().isoformat()
