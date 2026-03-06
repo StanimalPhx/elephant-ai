@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from elephant.data.store import DataStore
     from elephant.flows.anytime_log import AnytimeLogFlow
     from elephant.flows.evening_checkin import EveningCheckinFlow
+    from elephant.flows.integrity_check import IntegrityCheckFlow
     from elephant.flows.monthly_report import MonthlyReportFlow
     from elephant.flows.morning_digest import MorningDigestFlow
     from elephant.flows.weekly_recap import WeeklyRecapFlow
@@ -35,4 +36,5 @@ class DatabaseInstance:
     monthly_report: MonthlyReportFlow
     weekly_recap: WeeklyRecapFlow
     year_in_review: YearInReviewFlow
+    integrity_check: IntegrityCheckFlow
     schedule: ScheduleConfig

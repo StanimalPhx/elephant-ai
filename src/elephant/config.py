@@ -11,12 +11,13 @@ import yaml
 
 @dataclass(frozen=True)
 class LLMConfig:
-    base_url: str
-    api_key: str
+    base_url: str = ""
+    api_key: str = ""
     morning_model: str = "claude-sonnet-4-6"
     parsing_model: str = "gpt-4.1-mini"
     verify_traces: bool = False
     guardrail_output: bool = True
+    backend: str = "http"  # "http" or "agent_sdk"
 
 
 @dataclass(frozen=True)
@@ -49,6 +50,7 @@ class ScheduleConfig:
     monthly_report: str = "09:00"
     weekly_recap: str = "10:00"
     year_in_review: str = "10:00"
+    integrity_check: str = "03:00"
     timezone: str = "America/Chicago"
 
 

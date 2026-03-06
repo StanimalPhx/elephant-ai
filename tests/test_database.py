@@ -22,6 +22,7 @@ class TestDatabaseInstance:
             monthly_report=MagicMock(),
             weekly_recap=MagicMock(),
             year_in_review=MagicMock(),
+            integrity_check=MagicMock(),
             schedule=ScheduleConfig(),
         )
         assert db.name == "test_db"
@@ -38,6 +39,7 @@ class TestDatabaseInstance:
             anytime=MagicMock(), morning=MagicMock(), evening=MagicMock(),
             question_mgr=MagicMock(), monthly_report=MagicMock(),
             weekly_recap=MagicMock(), year_in_review=MagicMock(),
+            integrity_check=MagicMock(),
             schedule=ScheduleConfig(),
         )
         db_b = DatabaseInstance(
@@ -46,6 +48,7 @@ class TestDatabaseInstance:
             anytime=MagicMock(), morning=MagicMock(), evening=MagicMock(),
             question_mgr=MagicMock(), monthly_report=MagicMock(),
             weekly_recap=MagicMock(), year_in_review=MagicMock(),
+            integrity_check=MagicMock(),
             schedule=ScheduleConfig(),
         )
         assert db_a.store is not db_b.store

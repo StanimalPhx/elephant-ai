@@ -7,7 +7,7 @@ from typing import Any
 
 from elephant.data.models import Memory, PendingQuestion, Person, PreferencesFile
 from elephant.data.store import DataStore
-from elephant.llm.client import LLMClient
+from elephant.llm.backend import LLMBackend
 from elephant.llm.prompts import enrich_memory, generate_clarification
 
 logger = logging.getLogger(__name__)
@@ -47,7 +47,7 @@ def is_thin_memory(memory: Memory) -> bool:
 
 async def generate_question_for_memory(
     memory: Memory,
-    llm: LLMClient,
+    llm: LLMBackend,
     model: str,
     people: list[Person],
     prefs: PreferencesFile,
@@ -83,7 +83,7 @@ async def generate_question_for_memory(
 async def process_answer(
     question_id: str,
     answer_text: str,
-    llm: LLMClient,
+    llm: LLMBackend,
     model: str,
     store: DataStore,
 ) -> bool:

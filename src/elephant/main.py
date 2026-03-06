@@ -22,6 +22,7 @@ from elephant.data.store import DataStore
 from elephant.database import DatabaseInstance
 from elephant.flows.anytime_log import AnytimeLogFlow
 from elephant.flows.evening_checkin import EveningCheckinFlow
+from elephant.flows.integrity_check import IntegrityCheckFlow
 from elephant.flows.monthly_report import MonthlyReportFlow
 from elephant.flows.morning_digest import MorningDigestFlow
 from elephant.flows.weekly_recap import WeeklyRecapFlow
@@ -80,7 +81,7 @@ async def run(
     """Main application lifecycle."""
     # 1. Load config
     config = load_config(config_path)
-    logger.info("Config loaded (LLM: %s)", config.llm.base_url)
+    logger.info("Config loaded (LLM backend: %s)", config.llm.backend)
 
     # 1b. Telegram mode-dependent startup
     tg = config.messaging.telegram
@@ -110,9 +111,18 @@ async def run(
     # 2. Setup logging (use first database's data_dir for logs)
     _setup_logging(config.databases[0].data_dir, timezone=config.schedule.timezone)
 
-    # 3. Create HTTP session and LLM client (shared across databases)
+    # 3. Create HTTP session (always needed for messaging) and LLM client
     session = aiohttp.ClientSession()
-    llm = LLMClient(session, config.llm.base_url, config.llm.api_key)
+
+    if config.llm.backend == "agent_sdk":
+        from elephant.llm.agent_sdk import AgentSDKClient
+
+        llm: LLMClient | AgentSDKClient = AgentSDKClient(
+            default_model=config.llm.morning_model,
+        )
+        logger.info("Using Agent SDK backend (model: %s)", config.llm.morning_model)
+    else:
+        llm = LLMClient(session, config.llm.base_url, config.llm.api_key)
 
     # 4. Build per-database object graphs
     router = ChatRouter()
@@ -176,6 +186,10 @@ async def run(
             model=config.llm.morning_model,
             messaging=messaging,
         )
+        integrity = IntegrityCheckFlow(
+            store=store, git=git, llm=llm, model=config.llm.parsing_model,
+            database_name=db_cfg.name,
+        )
 
         db = DatabaseInstance(
             name=db_cfg.name,
@@ -190,6 +204,7 @@ async def run(
             monthly_report=monthly,
             weekly_recap=weekly,
             year_in_review=year_review,
+            integrity_check=integrity,
             schedule=db_cfg.schedule,
         )
         router.register_database(db)
@@ -223,6 +238,10 @@ async def run(
             12, 31, db.schedule.year_in_review, db.year_in_review.run,
             name=f"{db.name}:year_in_review",
         )
+        sched.schedule_daily(
+            db.schedule.integrity_check, db.integrity_check.run,
+            name=f"{db.name}:integrity_check",
+        )
         schedulers.append(sched)
 
     # 6. Build flows dict for API (namespaced by db)
@@ -234,6 +253,7 @@ async def run(
         flows[f"{db.name}:weekly_recap"] = db.weekly_recap.run
         flows[f"{db.name}:question_manager"] = db.question_mgr.process_pending
         flows[f"{db.name}:year_in_review"] = db.year_in_review.run
+        flows[f"{db.name}:integrity_check"] = db.integrity_check.run
 
     # 7. Start web server
     app = create_app(

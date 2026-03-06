@@ -19,6 +19,7 @@ def _make_response(status, body):
     return resp
 
 
+@pytest.mark.llm_api
 class TestLLMClient:
     def _make_client(self, session=None):
         session = session or AsyncMock()

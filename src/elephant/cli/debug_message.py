@@ -277,7 +277,7 @@ async def _run(config_path: str, message: str, database: str | None) -> None:
     _err(f"Config: {config_path}")
     _err(f"Database: {db_cfg.name} ({db_cfg.data_dir})")
     _err(f"Message: {message!r}")
-    _err(f"LLM: {config.llm.base_url} | model: {config.llm.parsing_model}")
+    _err(f"LLM: backend={config.llm.backend} | model: {config.llm.parsing_model}")
     _err("")
 
     store = ReadOnlyStore(db_cfg.data_dir)
@@ -285,7 +285,14 @@ async def _run(config_path: str, message: str, database: str | None) -> None:
     messaging = CapturingMessagingClient()
 
     async with aiohttp.ClientSession() as session:
-        llm = InstrumentedLLMClient(session, config.llm.base_url, config.llm.api_key)
+        if config.llm.backend == "agent_sdk":
+            from elephant.llm.agent_sdk import AgentSDKClient
+
+            llm: LLMClient | AgentSDKClient = AgentSDKClient(
+                default_model=config.llm.parsing_model,
+            )
+        else:
+            llm = InstrumentedLLMClient(session, config.llm.base_url, config.llm.api_key)
 
         flow = AnytimeLogFlow(
             store=store,

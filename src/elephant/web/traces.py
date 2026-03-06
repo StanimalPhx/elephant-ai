@@ -239,6 +239,103 @@ async def memories_list_handler(request: web.Request) -> web.Response:
 # GET /api/digests/{db_name}?page=0&per_page=20
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# GET /api/integrity/{db_name}?page=0&per_page=20
+# ---------------------------------------------------------------------------
+
+
+def _integrity_summary(record_data: dict[str, Any]) -> dict[str, Any]:
+    """Project an integrity run record into a lightweight summary."""
+    return {
+        "run_id": record_data.get("run_id", ""),
+        "started_at": record_data.get("started_at", ""),
+        "issues_found": record_data.get("issues_found", 0),
+        "auto_fixed": record_data.get("auto_fixed", 0),
+        "questions_created": record_data.get("questions_created", 0),
+        "has_error": record_data.get("error") is not None,
+    }
+
+
+async def integrity_list_handler(request: web.Request) -> web.Response:
+    """Return paginated integrity run summaries for a database."""
+    db = _find_db(request)
+    if db is None:
+        db_name = request.match_info["db_name"]
+        return web.json_response({"error": f"unknown database: {db_name}"}, status=404)
+
+    page = int(request.query.get("page", "0"))
+    per_page = int(request.query.get("per_page", "20"))
+    offset = page * per_page
+
+    runs, total = db.store.read_integrity_runs(limit=per_page, offset=offset)
+    summaries = [_integrity_summary(r.model_dump(mode="json")) for r in runs]
+    return web.json_response({"runs": summaries, "total": total})
+
+
+# ---------------------------------------------------------------------------
+# GET /api/integrity/{db_name}/{run_id}
+# ---------------------------------------------------------------------------
+
+async def integrity_detail_handler(request: web.Request) -> web.Response:
+    """Return full integrity run detail."""
+    run_id = request.match_info["run_id"]
+    db = _find_db(request)
+    if db is None:
+        db_name = request.match_info["db_name"]
+        return web.json_response({"error": f"unknown database: {db_name}"}, status=404)
+
+    record = db.store.read_integrity_run_by_id(run_id)
+    if record is None:
+        return web.json_response({"error": "integrity run not found"}, status=404)
+
+    result = record.model_dump(mode="json")
+    if record.trace_id:
+        trace = db.store.read_trace_by_id(record.trace_id)
+        if trace:
+            result["trace_steps"] = [s.model_dump(mode="json") for s in trace.steps]
+
+    return web.json_response(result)
+
+
+# ---------------------------------------------------------------------------
+# POST /api/integrity/{db_name}/run?dry_run=true
+# ---------------------------------------------------------------------------
+
+async def integrity_run_handler(request: web.Request) -> web.Response:
+    """Trigger an integrity check. Pass ?dry_run=true for read-only mode."""
+    db = _find_db(request)
+    if db is None:
+        db_name = request.match_info["db_name"]
+        return web.json_response({"error": f"unknown database: {db_name}"}, status=404)
+
+    dry_run = request.query.get("dry_run", "").lower() in ("true", "1", "yes")
+
+    try:
+        if dry_run:
+            record = await db.integrity_check.run_dry()
+            return web.json_response({
+                "dry_run": True,
+                "record": record.model_dump(mode="json"),
+            })
+        else:
+            success = await db.integrity_check.run()
+            runs, _ = db.store.read_integrity_runs(limit=1)
+            record_data = runs[0].model_dump(mode="json") if runs else None
+            return web.json_response({
+                "dry_run": False,
+                "success": success,
+                "record": record_data,
+            })
+    except Exception as exc:
+        return web.json_response(
+            {"error": f"integrity check failed: {exc}"}, status=500,
+        )
+
+
+# ---------------------------------------------------------------------------
+# GET /api/digests/{db_name}?page=0&per_page=20
+# ---------------------------------------------------------------------------
+
 async def digests_list_handler(request: web.Request) -> web.Response:
     """Return paginated digest history for a database, newest first."""
     db = _find_db(request)
@@ -286,6 +383,9 @@ def register_routes(app: web.Application, router: ChatRouter) -> None:
     app.router.add_get("/api/people/{db_name}", people_handler)
     app.router.add_get("/api/groups/{db_name}", groups_handler)
     app.router.add_get("/api/memories/{db_name}", memories_list_handler)
+    app.router.add_get("/api/integrity/{db_name}", integrity_list_handler)
+    app.router.add_post("/api/integrity/{db_name}/run", integrity_run_handler)
+    app.router.add_get("/api/integrity/{db_name}/{run_id}", integrity_detail_handler)
     app.router.add_get("/api/digests/{db_name}", digests_list_handler)
 
     # Static assets from the frontend build

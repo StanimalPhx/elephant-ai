@@ -1,4 +1,4 @@
-.PHONY: install test lint typecheck check fmt run check-telegram set-webhook run-flow clean
+.PHONY: install test lint typecheck check fmt run check-telegram set-webhook run-flow clean test-llm-api test-llm-agent test-llm
 
 install:
 	uv sync --all-extras
@@ -29,6 +29,15 @@ set-webhook:
 
 run-flow:
 	PYTHONPATH=src uv run python -m elephant.run_flow $(FLOW)
+
+test-llm-api:
+	uv run pytest -m llm_api
+
+test-llm-agent:
+	uv run pytest -m llm_agent
+
+test-llm:
+	uv run pytest -m "llm_api or llm_agent"
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} +

@@ -30,6 +30,14 @@ def _build_context_str(
     return "\n".join(parts) if parts else "(no context available)"
 
 
+def _build_vision_context_str(people: list[Person]) -> str:
+    """Build minimal context for vision prompts — names and relationships only."""
+    if not people:
+        return "(no context available)"
+    entries = [f"{p.display_name} ({', '.join(p.relationship)})" for p in people]
+    return f"People: {', '.join(entries)}"
+
+
 def parse_memory(
     text: str,
     people: list[Person],
@@ -432,14 +440,16 @@ def describe_image(
     prefs: PreferencesFile,
 ) -> list[dict[str, Any]]:
     """Prompt to describe an image for a family memory log using vision."""
-    context_str = _build_context_str(people, prefs)
+    context_str = _build_vision_context_str(people)
     return [
         {
             "role": "system",
             "content": (
-                "You are a family memory assistant. Describe what's happening in the photo "
+                "You are a family memory assistant. Describe what you see in the photo "
                 "for a family memory log. Include who appears to be in the photo, what they're "
                 "doing, and the setting. Keep it concise (2-3 sentences).\n\n"
+                "ONLY describe what is visually present in the image. "
+                "Do NOT infer occasions, traditions, or events from context.\n\n"
                 f"Family context:\n{context_str}"
             ),
         },
@@ -518,6 +528,37 @@ def year_in_review(
                 else f"Year-in-review statistics:\n\n{stats}"
             ),
         },
+    ]
+
+
+def check_memory_issues(memories_block: str) -> list[dict[str, str]]:
+    """Prompt to find semantic duplicates and contradictions in memories on the same date."""
+    return [
+        {
+            "role": "system",
+            "content": (
+                "You are a data quality checker for a family memory database. "
+                "Given a list of memories from the same date, identify:\n"
+                "1. Semantic duplicates — pairs that describe the same event "
+                "(even if worded differently).\n"
+                "2. Contradictions — pairs that contain contradictory facts "
+                "(e.g., 'stayed home all day' vs 'went to the park').\n\n"
+                "Respond ONLY with valid YAML (no markdown fencing) using two "
+                "top-level keys:\n\n"
+                "duplicates:\n"
+                "- id_a: 20250301_park\n"
+                "  id_b: 20250301_walk\n"
+                "  reason: Both describe a visit to the park\n"
+                "contradictions:\n"
+                "- id_a: 20250301_home\n"
+                "  id_b: 20250301_park\n"
+                "  contradiction: One says stayed home, the other says went to the park\n\n"
+                "Use empty lists if none found, e.g.:\n"
+                "duplicates: []\n"
+                "contradictions: []\n"
+            ),
+        },
+        {"role": "user", "content": memories_block},
     ]
 
 

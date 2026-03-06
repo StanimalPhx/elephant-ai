@@ -17,7 +17,7 @@ from elephant.tracing import LLMCallStep, ToolExecStep, record_step
 if TYPE_CHECKING:
     from elephant.data.store import DataStore
     from elephant.git_ops import GitRepo
-    from elephant.llm.client import LLMClient
+    from elephant.llm.backend import LLMBackend
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +89,7 @@ class ConversationalAgent:
     def __init__(
         self,
         store: DataStore,
-        llm: LLMClient,
+        llm: LLMBackend,
         model: str,
         git: GitRepo,
         history_limit: int = 500,
@@ -103,6 +103,24 @@ class ConversationalAgent:
         self._history_limit = history_limit
         self._verify_traces = verify_traces
         self._guardrail_output = guardrail_output
+
+        # If using Agent SDK, rebuild the LLM client with an MCP server
+        # so that chat_with_tools actually executes tools via MCP.
+        if self._is_agent_sdk:
+            from elephant.mcp.tools import build_elephant_mcp_server
+
+            mcp_server = build_elephant_mcp_server(self._executor)
+            from elephant.llm.agent_sdk import AgentSDKClient
+
+            self._llm = AgentSDKClient(
+                mcp_server=mcp_server,
+                default_model=llm._default_model,  # type: ignore[attr-defined]
+            )
+
+    @property
+    def _is_agent_sdk(self) -> bool:
+        """Check if the LLM backend is AgentSDKClient without importing the module."""
+        return type(self._llm).__name__ == "AgentSDKClient"
 
     async def _check_injection_llm(self, text: str, regex_flagged: bool) -> bool:
         """LLM-based injection detection. Returns True if flagged."""
@@ -212,6 +230,10 @@ class ConversationalAgent:
             messages.append({"role": entry.role, "content": entry.content})
 
         messages.append({"role": "user", "content": user_content})
+
+        # Agent SDK path: Claude handles the tool loop internally via MCP
+        if self._is_agent_sdk:
+            return await self._handle_agent_sdk(messages, user_content)
 
         consecutive_errors = 0
         tools_called: set[str] = set()
@@ -363,6 +385,33 @@ class ConversationalAgent:
 
         # Output guardrails: regex + LLM sanitization
         final_text = await self._sanitize_output_llm(final_text)
+        self._store.append_chat_history(user_content, final_text)
+        return final_text
+
+    async def _handle_agent_sdk(
+        self,
+        messages: list[dict[str, Any]],
+        user_content: str,
+    ) -> str:
+        """Handle message via Agent SDK — Claude runs the full tool loop via MCP."""
+        response = await self._llm.chat_with_tools(
+            messages,
+            model=self._model,
+            tools=TOOL_DEFINITIONS,
+        )
+
+        record_step(LLMCallStep(
+            method="chat_with_tools (agent_sdk)",
+            model=self._model,
+            messages=[_sanitize_msg(m) for m in messages],
+            response_content=response.content,
+            usage=response.usage,
+        ))
+
+        final_text = response.content or "Done!"
+
+        # Output guardrails: regex-only (skip LLM sanitizer to avoid extra subprocess)
+        final_text = _sanitize_output(final_text)
         self._store.append_chat_history(user_content, final_text)
         return final_text
 

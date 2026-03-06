@@ -45,6 +45,7 @@ def _make_db(
         monthly_report=MagicMock(),
         weekly_recap=MagicMock(),
         year_in_review=MagicMock(),
+        integrity_check=MagicMock(),
         schedule=ScheduleConfig(),
     )
 

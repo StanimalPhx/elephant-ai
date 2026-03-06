@@ -1,8 +1,9 @@
 """Tests for the conversational agent tool-calling loop."""
 
 import json
+import sys
 from datetime import date
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -26,6 +27,7 @@ def agent_deps(data_dir):
     return agent, store, llm, git
 
 
+@pytest.mark.llm_api
 class TestConversationalAgent:
     async def test_direct_text_response(self, agent_deps):
         """LLM responds with text containing opt-out, no tool calls."""
@@ -248,6 +250,7 @@ class TestConversationalAgent:
         assert llm.chat.call_count >= 1
 
 
+@pytest.mark.llm_api
 class TestNeedsReprompt:
     """Unit tests for _needs_reprompt."""
 
@@ -271,6 +274,7 @@ class TestNeedsReprompt:
         assert _needs_reprompt("Here's what I found.", {"list_memories"}) is True
 
 
+@pytest.mark.llm_api
 class TestRepromptBehavior:
     """Integration tests for the re-prompt logic in handle()."""
 
@@ -387,3 +391,95 @@ class TestRepromptBehavior:
         # First attempt triggers re-prompt, second attempt is accepted (no infinite loop)
         assert call_count == 2
         assert result == "Response 2"
+
+
+@pytest.mark.llm_agent
+class TestAgentSDKPath:
+    """Tests for the Agent SDK code path (_handle_agent_sdk)."""
+
+    @pytest.fixture
+    def agent_sdk_deps(self, data_dir):
+        """Create agent with a mock LLM that looks like AgentSDKClient."""
+        store = DataStore(data_dir)
+        store.initialize()
+
+        # Create a real class named "AgentSDKClient" so type().__name__ check works
+        class AgentSDKClient:
+            _default_model = "test-model"
+            chat = AsyncMock()
+            chat_with_tools = AsyncMock()
+
+        llm = AgentSDKClient()
+
+        git = MagicMock(spec=GitRepo)
+        git.auto_commit = MagicMock(return_value="abc123")
+
+        # The new client that __init__ will create (also named AgentSDKClient)
+        new_client = AgentSDKClient()
+
+        # Mock the modules that __init__ imports locally
+        mock_mcp_mod = MagicMock()
+        mock_mcp_mod.build_elephant_mcp_server.return_value = MagicMock()
+
+        mock_sdk_mod = MagicMock()
+        mock_sdk_mod.AgentSDKClient.return_value = new_client
+
+        with patch.dict(sys.modules, {
+            "elephant.mcp.tools": mock_mcp_mod,
+            "elephant.llm.agent_sdk": mock_sdk_mod,
+        }):
+            agent = ConversationalAgent(store, llm, "test-model", git)
+
+        return agent, store, new_client, git
+
+    async def test_is_agent_sdk_detected(self, agent_sdk_deps):
+        """Verify _is_agent_sdk returns True for AgentSDKClient."""
+        agent, store, llm, git = agent_sdk_deps
+        assert agent._is_agent_sdk is True
+
+    async def test_handle_agent_sdk_returns_response(self, agent_sdk_deps):
+        """Agent SDK path calls chat_with_tools and returns sanitized text."""
+        agent, store, llm, git = agent_sdk_deps
+
+        llm.chat_with_tools = AsyncMock(return_value=LLMResponse(
+            content="I've saved the memory about the park trip!",
+            model="m",
+            usage={},
+            tool_calls=[],
+        ))
+
+        result = await agent.handle("We went to the park", "Telegram")
+        assert "park" in result.lower()
+        llm.chat_with_tools.assert_called_once()
+
+    async def test_handle_agent_sdk_saves_chat_history(self, agent_sdk_deps):
+        """Agent SDK path saves chat history after responding."""
+        agent, store, llm, git = agent_sdk_deps
+
+        llm.chat_with_tools = AsyncMock(return_value=LLMResponse(
+            content="Got it! No update needed.",
+            model="m",
+            usage={},
+            tool_calls=[],
+        ))
+
+        await agent.handle("Hello there", "Telegram")
+        history = store.read_chat_history()
+        assert len(history.entries) == 2  # user + assistant
+        assert history.entries[0].role == "user"
+        assert history.entries[1].role == "assistant"
+
+    async def test_handle_agent_sdk_sanitizes_output(self, agent_sdk_deps):
+        """Agent SDK path redacts sensitive patterns from output."""
+        agent, store, llm, git = agent_sdk_deps
+
+        llm.chat_with_tools = AsyncMock(return_value=LLMResponse(
+            content="Here's a key: sk-abcdefghijklmnopqrstuvwxyz No update needed.",
+            model="m",
+            usage={},
+            tool_calls=[],
+        ))
+
+        result = await agent.handle("Show me secrets", "Telegram")
+        assert "sk-" not in result
+        assert "[REDACTED]" in result

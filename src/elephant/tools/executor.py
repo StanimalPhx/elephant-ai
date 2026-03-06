@@ -18,7 +18,8 @@ from elephant.tools.definitions import ALLOWED_TOOL_NAMES, validate_tool_args
 if TYPE_CHECKING:
     from elephant.data.store import DataStore
     from elephant.git_ops import GitRepo
-    from elephant.llm.client import LLMClient, ToolCall
+    from elephant.llm.backend import LLMBackend
+    from elephant.llm.client import ToolCall
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +105,7 @@ def _score_person_match(query: str, person: Person) -> float:
 class ToolExecutor:
     """Dispatches tool calls to the appropriate handlers."""
 
-    def __init__(self, store: DataStore, git: GitRepo, llm: LLMClient, model: str) -> None:
+    def __init__(self, store: DataStore, git: GitRepo, llm: LLMBackend, model: str) -> None:
         self._store = store
         self._git = git
         self._llm = llm

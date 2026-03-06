@@ -6,7 +6,7 @@ from typing import Any
 from elephant.data.models import Memory, NostalgiaWeights, PreferencesFile
 from elephant.data.store import DataStore
 from elephant.git_ops import GitRepo
-from elephant.llm.client import LLMClient
+from elephant.llm.backend import LLMBackend
 from elephant.llm.prompts import classify_sentiment
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,7 @@ def _clamp(value: float) -> float:
 
 async def classify_feedback_sentiment(
     text: str,
-    llm: LLMClient,
+    llm: LLMBackend,
     model: str,
 ) -> str:
     """Classify feedback text as positive/neutral/negative."""
@@ -97,7 +97,7 @@ def adjust_weights(
 async def process_feedback(
     text: str,
     digest_memory_ids: list[str],
-    llm: LLMClient,
+    llm: LLMBackend,
     model: str,
     store: DataStore,
     git: GitRepo,

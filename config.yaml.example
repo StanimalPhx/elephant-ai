@@ -4,11 +4,13 @@
 # Required: llm section and at least one database.
 
 llm:
-  base_url: "https://routellm.abacus.ai/v1"   # any OpenAI-compatible endpoint
-  api_key: "YOUR_API_KEY"
-  morning_model: "claude-sonnet-4-6"            # creative writing (digests)
-  parsing_model: "gpt-4.1-mini"                 # fast structured extraction
+  backend: "http"                                # "http" (OpenAI-compatible API) or "agent_sdk" (Claude CLI)
+  base_url: "https://routellm.abacus.ai/v1"     # required for http backend
+  api_key: "YOUR_API_KEY"                        # required for http backend
+  morning_model: "claude-sonnet-4-6"             # creative writing (digests)
+  parsing_model: "gpt-4.1-mini"                  # fast structured extraction
   verify_traces: false                           # LLM post-response audit (adds latency + cost)
+  # guardrail_output: true                       # LLM-based output sanitization
 
 # Default schedule — databases inherit this unless they override it
 schedule:

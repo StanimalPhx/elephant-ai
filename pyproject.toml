@@ -10,6 +10,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+agent-sdk = ["claude-agent-sdk>=0.1.44"]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
@@ -38,6 +39,10 @@ warn_return_any = true
 warn_unused_configs = true
 
 [[tool.mypy.overrides]]
+module = "claude_agent_sdk.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
 module = "tests.*"
 disallow_untyped_defs = false
 
@@ -45,4 +50,8 @@ disallow_untyped_defs = false
 testpaths = ["tests"]
 pythonpath = ["src"]
 asyncio_mode = "auto"
-markers = ["llm: tests that call a real LLM API (skip with -m 'not llm')"]
+markers = [
+    "llm: tests that call a real LLM API (skip with -m 'not llm')",
+    "llm_api: tests for the HTTP API LLM backend",
+    "llm_agent: tests for the Agent SDK LLM backend",
+]

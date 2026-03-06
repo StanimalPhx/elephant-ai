@@ -13,12 +13,12 @@ from elephant.data.models import RawMessage, RawMessageAttachment
 from elephant.llm.prompts import describe_image
 from elephant.memory_parser import parse_memories_from_document
 from elephant.tools.agent import ConversationalAgent
-from elephant.tracing import IntentStep, finish_trace, record_step, start_trace
+from elephant.tracing import IntentStep, LLMCallStep, finish_trace, record_step, start_trace
 
 if TYPE_CHECKING:
     from elephant.data.store import DataStore
     from elephant.git_ops import GitRepo
-    from elephant.llm.client import LLMClient
+    from elephant.llm.backend import LLMBackend
     from elephant.messaging.base import IncomingMessage, MessagingClient
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ class AnytimeLogFlow:
     def __init__(
         self,
         store: DataStore,
-        llm: LLMClient,
+        llm: LLMBackend,
         parsing_model: str,
         messaging: MessagingClient,
         git: GitRepo,
@@ -163,6 +163,23 @@ class AnytimeLogFlow:
                     response = await self._llm.chat(
                         messages, model=self._parsing_model, temperature=0.5
                     )
+                    trace_msgs = [
+                        {
+                            "role": m["role"],
+                            "content": "(image)"
+                            if isinstance(m.get("content"), list)
+                            else str(m.get("content", ""))[:2000],
+                        }
+                        for m in messages
+                    ]
+                    record_step(LLMCallStep(
+                        method="chat",
+                        model=self._parsing_model,
+                        temperature=0.5,
+                        messages=trace_msgs,
+                        response_content=response.content,
+                        usage=response.usage,
+                    ))
                     text = response.content or "Photo shared"
                     text = text.strip()
                     logger.info("Generated image description: %s", text[:80])

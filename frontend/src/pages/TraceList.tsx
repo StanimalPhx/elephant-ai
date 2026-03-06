@@ -59,6 +59,8 @@ export default function TraceList() {
         <span style={{ marginLeft: 'auto', display: 'flex', gap: '1rem' }}>
           <Link to={`/${dbName}/timeline`}>Timeline</Link>
           <Link to={`/${dbName}/people`}>People</Link>
+          <Link to={`/${dbName}/digests`}>Digests</Link>
+          <Link to={`/${dbName}/integrity`}>Integrity</Link>
         </span>
       </div>
       <h1>Traces</h1>

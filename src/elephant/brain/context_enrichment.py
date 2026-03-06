@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from elephant.data.models import Person, PreferencesFile
     from elephant.data.store import DataStore
     from elephant.git_ops import GitRepo
-    from elephant.llm.client import LLMClient
+    from elephant.llm.backend import LLMBackend
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ def _get_values(updates: dict[str, Any], keys: set[str]) -> list[Any]:
 
 async def process_context_update(
     text: str,
-    llm: LLMClient,
+    llm: LLMBackend,
     model: str,
     store: DataStore,
     git: GitRepo,

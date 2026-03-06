@@ -11,7 +11,7 @@ from elephant.llm.prompts import year_in_review
 
 if TYPE_CHECKING:
     from elephant.data.store import DataStore
-    from elephant.llm.client import LLMClient
+    from elephant.llm.backend import LLMBackend
     from elephant.messaging.base import MessagingClient
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ class YearInReviewFlow:
     def __init__(
         self,
         store: DataStore,
-        llm: LLMClient,
+        llm: LLMBackend,
         model: str,
         messaging: MessagingClient,
     ) -> None:

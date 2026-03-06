@@ -11,7 +11,7 @@ from elephant.llm.prompts import classify_intent
 
 if TYPE_CHECKING:
     from elephant.data.models import DigestState, PendingQuestionsFile
-    from elephant.llm.client import LLMClient
+    from elephant.llm.backend import LLMBackend
     from elephant.messaging.base import IncomingMessage
 
 logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ async def resolve_intent(
     message: IncomingMessage,
     digest_state: DigestState,
     pending_questions: PendingQuestionsFile,
-    llm: LLMClient | None = None,
+    llm: LLMBackend | None = None,
     model: str = "gpt-4.1-mini",
 ) -> Intent:
     """Resolve the intent of an incoming message.

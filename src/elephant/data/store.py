@@ -20,6 +20,7 @@ from elephant.data.models import (
     DigestHistoryFile,
     DigestState,
     Group,
+    IntegrityRunRecord,
     Memory,
     MetricsFile,
     MilestoneStateFile,
@@ -808,6 +809,69 @@ class DataStore:
                     data = _json.loads(line)
                     if data.get("trace_id") == trace_id:
                         return Trace.model_validate(data)
+                except Exception:
+                    continue
+        return None
+
+    # --- Integrity Runs (JSONL) ---
+
+    def _integrity_runs_jsonl_path(self) -> str:
+        return os.path.join(self.data_dir, "logs", "integrity_runs.jsonl")
+
+    def append_integrity_run(self, record: IntegrityRunRecord) -> None:
+        """Append a finished integrity run as a single JSON line."""
+        path = self._integrity_runs_jsonl_path()
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "a") as f:
+            f.write(record.model_dump_json() + "\n")
+
+    def read_integrity_runs(
+        self, limit: int = 30, offset: int = 0,
+    ) -> tuple[list[IntegrityRunRecord], int]:
+        """Read integrity runs newest-first with pagination."""
+        import json as _json
+
+        path = self._integrity_runs_jsonl_path()
+        if not os.path.exists(path):
+            return [], 0
+
+        all_lines: list[str] = []
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    all_lines.append(line)
+
+        total = len(all_lines)
+        all_lines.reverse()
+        page = all_lines[offset : offset + limit]
+
+        records: list[IntegrityRunRecord] = []
+        for line in page:
+            try:
+                data = _json.loads(line)
+                records.append(IntegrityRunRecord.model_validate(data))
+            except Exception:
+                continue
+        return records, total
+
+    def read_integrity_run_by_id(self, run_id: str) -> IntegrityRunRecord | None:
+        """Find a single integrity run by its run_id."""
+        import json as _json
+
+        path = self._integrity_runs_jsonl_path()
+        if not os.path.exists(path):
+            return None
+
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    data = _json.loads(line)
+                    if data.get("run_id") == run_id:
+                        return IntegrityRunRecord.model_validate(data)
                 except Exception:
                     continue
         return None

@@ -14,7 +14,7 @@ from elephant.data.models import MediaLinks, Memory, Person, PreferencesFile
 from elephant.llm.prompts import parse_memories_batch, parse_memory
 
 if TYPE_CHECKING:
-    from elephant.llm.client import LLMClient
+    from elephant.llm.backend import LLMBackend
     from elephant.messaging.base import Attachment
 
 logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ class ParseResult:
 
 async def parse_memory_from_text(
     text: str,
-    llm: LLMClient,
+    llm: LLMBackend,
     model: str,
     people: list[Person],
     prefs: PreferencesFile,
@@ -86,7 +86,7 @@ async def parse_memory_from_text(
 async def parse_memories_from_document(
     caption: str,
     document_content: str,
-    llm: LLMClient,
+    llm: LLMBackend,
     model: str,
     people: list[Person],
     prefs: PreferencesFile,

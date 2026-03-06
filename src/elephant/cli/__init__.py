@@ -56,6 +56,22 @@ def main() -> None:
         help="Database name (default: first in config)",
     )
 
+    # integrity-check subcommand
+    ic = subparsers.add_parser(
+        "integrity-check",
+        help="Run full integrity check (auto-fix + questions)",
+    )
+    ic.add_argument(
+        "-d", "--database",
+        default=None,
+        help="Database name (default: first in config)",
+    )
+    ic.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Read-only mode: report issues without modifying the database",
+    )
+
     args = parser.parse_args()
 
     if args.command is None:
@@ -74,3 +90,11 @@ def main() -> None:
         from elephant.cli.audit import run_audit_cli
 
         run_audit_cli(config_path=args.config, database=args.database)
+    elif args.command == "integrity-check":
+        from elephant.cli.integrity import run_integrity_cli
+
+        run_integrity_cli(
+            config_path=args.config,
+            database=args.database,
+            dry_run=args.dry_run,
+        )

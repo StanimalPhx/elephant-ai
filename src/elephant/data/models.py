@@ -347,3 +347,27 @@ class RawMessage(BaseModel):
     attachments: list[RawMessageAttachment] = Field(default_factory=list)
 
 
+# --- Integrity Check ---
+
+
+class IntegrityFinding(BaseModel):
+    category: str  # e.g. "stale_thread", "orphan_person"
+    severity: str  # "warning" or "error"
+    message: str
+    action: str  # "auto_fixed", "question_created", "logged"
+    details: dict[str, str] = Field(default_factory=dict)
+    explanation: str | None = None
+
+
+class IntegrityRunRecord(BaseModel):
+    run_id: str
+    started_at: datetime
+    finished_at: datetime | None = None
+    issues_found: int = 0
+    auto_fixed: int = 0
+    questions_created: int = 0
+    findings: list[IntegrityFinding] = Field(default_factory=list)
+    error: str | None = None
+    trace_id: str | None = None
+
+
