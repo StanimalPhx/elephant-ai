@@ -55,3 +55,8 @@ markers = [
     "llm_api: tests for the HTTP API LLM backend",
     "llm_agent: tests for the Agent SDK LLM backend",
 ]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.2.0",
+]

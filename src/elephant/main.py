@@ -32,6 +32,10 @@ from elephant.health import create_app
 from elephant.llm.client import LLMClient
 from elephant.messaging.telegram import TelegramClient
 from elephant.messaging.twilio import TwilioClient
+# --- ADDED THIS NEW IMPORT ---
+from elephant.messaging.nextcloud_talk import NextcloudTalkClient
+# --- Also import MessagingClient if it's used for type hinting the messaging_client variable ---
+from elephant.messaging.base import MessagingClient # Assuming base.py defines MessagingClient
 from elephant.router import ChatRouter
 from elephant.scheduler import Scheduler
 
@@ -84,18 +88,26 @@ async def run(
     logger.info("Config loaded (LLM backend: %s)", config.llm.backend)
 
     # 1b. Telegram mode-dependent startup
-    tg = config.messaging.telegram
-    poller = None
+    # --- This entire block needs to be refactored to handle different messaging providers ---
+    # The existing code is specific to Telegram. You'll need to decide how to handle
+    # provider-specific startup logic for Nextcloud Talk (e.g., no webhooks by default,
+    # or if you implement webhooks, their specific setup).
+
+    # The most robust approach would be to instantiate the messaging client first,
+    # then handle provider-specific setup based on the client type or provider name.
+
+    # --- Start of the refactored messaging client instantiation ---
+    messaging_client: MessagingClient # Declare type for messaging_client
+
     if config.messaging.provider == "telegram":
+        tg = config.messaging.telegram
         if tg.mode == "polling":
             # Delete any active webhook so getUpdates works
             from elephant.telegram_api import delete_webhook
-
             delete_webhook(tg.bot_token)
             logger.info("Telegram polling mode: webhook deleted")
         elif tg.webhook_url:
             from elephant.telegram_api import build_webhook_url, get_webhook_info
-
             expected = build_webhook_url(tg)
             info = get_webhook_info(tg.bot_token)
             registered = info.get("result", {}).get("url", "")
@@ -107,22 +119,37 @@ async def run(
                 )
                 sys.exit(1)
             logger.info("Telegram webhook OK: %s", registered)
+        messaging_client = TelegramClient(config.messaging.telegram) # Instantiate TelegramClient here
+    elif config.messaging.provider == "twilio":
+        # Assuming Twilio doesn't have specific startup modes like Telegram polling/webhook
+        messaging_client = TwilioClient(config.messaging.twilio) # Instantiate TwilioClient
+    elif config.messaging.provider == "nextcloud_talk": # --- ADD THIS NEW CONDITION ---
+        messaging_client = NextcloudTalkClient(config.messaging.nextcloud_talk)
+        # Add any Nextcloud Talk specific startup logic here if necessary.
+        # For example, if you implement webhooks for Nextcloud Talk,
+        # you might need to register them here, similar to Telegram's webhook check.
+        # Currently, your NextcloudTalkClient implementation primarily sends messages,
+        # so no complex startup logic is strictly needed beyond instantiation.
+    else:
+        raise ValueError(f"Unknown messaging provider: {config.messaging.provider}")
+    # --- End of the refactored messaging client instantiation ---
+
 
     # 2. Setup logging (use first database's data_dir for logs)
     _setup_logging(config.databases[0].data_dir, timezone=config.schedule.timezone)
 
     # 3. Create HTTP session (always needed for messaging) and LLM client
-    session = aiohttp.ClientSession()
+    session = aiohttp.ClientSession() # This session will now be used by NextcloudTalkClient as well, if passed.
 
     if config.llm.backend == "agent_sdk":
         from elephant.llm.agent_sdk import AgentSDKClient
-
         llm: LLMClient | AgentSDKClient = AgentSDKClient(
             default_model=config.llm.morning_model,
         )
         logger.info("Using Agent SDK backend (model: %s)", config.llm.morning_model)
     else:
         llm = LLMClient(session, config.llm.base_url, config.llm.api_key)
+
 
     # 4. Build per-database object graphs
     router = ChatRouter()

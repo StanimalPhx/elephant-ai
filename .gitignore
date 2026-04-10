@@ -20,3 +20,4 @@ htmlcov/
 
 config.yaml
 _data/
+.ipynb_checkpoints/

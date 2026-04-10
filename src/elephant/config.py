@@ -35,6 +35,14 @@ class TelegramConfig:
     webhook_url: str = ""
     mode: str = "polling"  # "polling" or "webhook"
 
+# --- NEW DATACLASS FOR NEXTCLOUD TALK ---
+@dataclass(frozen=True)
+class NextcloudTalkConfig:
+    nextcloud_url: str = ""
+    username: str = ""
+    app_password: str = ""
+    default_chat_token: str = ""
+    actor_display_name: str = "My Little Elephant"
 
 @dataclass(frozen=True)
 class MessagingConfig:
